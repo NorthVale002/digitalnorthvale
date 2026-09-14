@@ -326,6 +326,14 @@ export interface OrderRecord {
   paymentDate?: string;
 }
 
+export interface AdminAuthConfig {
+  secretSlug: string; // e.g. "secret-admin"
+  username: string; // e.g. "admin"
+  passwordHash?: string; // SHA-256 hashed password
+  salt?: string;
+  allowEmailLogin?: boolean;
+}
+
 export interface SiteConfig {
   header: HeaderConfig;
   footer: FooterConfig;
@@ -336,4 +344,5 @@ export interface SiteConfig {
   services: ServiceItem[];
   seo: SeoConfig;
   payment: PaymentSettingsConfig;
+  adminAuth?: AdminAuthConfig;
 }

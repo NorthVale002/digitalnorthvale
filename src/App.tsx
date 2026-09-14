@@ -10,11 +10,17 @@ import { CustomPageView } from './components/pages/CustomPageView';
 import { ServicesCatalogPage } from './components/pages/ServicesCatalogPage';
 import { ServiceDetailPage } from './components/pages/ServiceDetailPage';
 import { AdminDashboard } from './components/admin/AdminDashboard';
+import { AdminLoginPage } from './components/admin/AdminLoginPage';
 import { OrderModal } from './components/common/OrderModal';
 
 const CmsAppContent: React.FC = () => {
-  const { config, activeView } = useCms();
+  const { config, activeView, isAdminAuthenticated } = useCms();
   const { theme } = config;
+
+  // If viewing Secret Admin Login Portal
+  if (activeView === 'admin-login') {
+    return <AdminLoginPage />;
+  }
 
   // Determine font family class
   const fontClass =
@@ -33,8 +39,8 @@ const CmsAppContent: React.FC = () => {
         color: theme.textColor,
       }}
     >
-      {/* WordPress-style Top Admin Bar */}
-      <AdminBar />
+      {/* WordPress-style Top Admin Bar - strictly visible only when admin is authenticated */}
+      {isAdminAuthenticated && <AdminBar />}
 
       {/* Website Header */}
       <Header />
@@ -58,8 +64,8 @@ const CmsAppContent: React.FC = () => {
       {/* Website Footer */}
       <Footer />
 
-      {/* Full Admin Panel Modal */}
-      <AdminDashboard />
+      {/* Full Admin Panel Modal - accessible only when authenticated */}
+      {isAdminAuthenticated && <AdminDashboard />}
 
       {/* Firebase-backed Client Order & Booking Modal */}
       <OrderModal />

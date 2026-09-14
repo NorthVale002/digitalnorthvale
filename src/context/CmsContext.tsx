@@ -30,6 +30,16 @@ import {
   orderBy,
   onSnapshot,
 } from '../lib/firebase';
+import {
+  checkStoredAuthSession,
+  saveAuthSession,
+  clearAuthSession,
+  verifyUsername,
+  verifyPassword,
+  isSecretAdminUrl,
+  DEFAULT_SECRET_SLUG,
+  DEFAULT_ADMIN_USERNAME,
+} from '../lib/adminAuth';
 
 const STORAGE_KEY = 'atelier_cms_site_config_v2';
 const ADMIN_EMAIL_STORAGE_KEY = 'apex_cms_admin_email';
@@ -44,7 +54,8 @@ export type AdminTabType =
   | 'pages'
   | 'blog'
   | 'footer'
-  | 'seo';
+  | 'seo'
+  | 'security';
 
 export type CloudSyncStatusType = 'synced' | 'saving' | 'local_only' | 'error';
 
@@ -96,6 +107,10 @@ interface CmsContextType {
   cloudSyncStatus: CloudSyncStatusType;
   lastCloudSyncTime: string | null;
   saveConfigToCloud: () => Promise<boolean>;
+  // Admin Authentication & Security
+  isAdminAuthenticated: boolean;
+  loginAdmin: (username: string, password: string, remember?: boolean) => Promise<boolean>;
+  logoutAdmin: () => void;
   // Order Modal interaction
   orderModalOpen: boolean;
   setOrderModalOpen: (open: boolean) => void;
@@ -156,6 +171,10 @@ export const CmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 ? parsed.payment.methods
                 : DEFAULT_SITE_CONFIG.payment.methods,
           },
+          adminAuth: {
+            ...DEFAULT_SITE_CONFIG.adminAuth,
+            ...(parsed.adminAuth || {}),
+          },
         };
       }
     } catch (e) {
@@ -168,6 +187,11 @@ export const CmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [isAdminOpen, setIsAdminOpen] = useState<boolean>(false);
   const [adminTab, setAdminTab] = useState<AdminTabType>('header');
   const [visitorMode, setVisitorMode] = useState<boolean>(false);
+
+  // Admin Authentication State
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(() => {
+    return checkStoredAuthSession();
+  });
 
   // Admin Notification Email
   const [adminNotificationEmail, setAdminNotificationEmailState] = useState<string>(() => {
@@ -230,6 +254,10 @@ export const CmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                   ...(remoteConfig.seo?.pageSeo || {}),
                 },
               },
+              adminAuth: {
+                ...DEFAULT_SITE_CONFIG.adminAuth,
+                ...(remoteConfig.adminAuth || {}),
+              },
             }));
             setCloudSyncStatus('synced');
             setLastCloudSyncTime(new Date().toLocaleTimeString());
@@ -245,6 +273,95 @@ export const CmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       console.warn('Firestore config listener init notice:', e);
     }
   }, []);
+
+  // Admin Login Handler
+  const loginAdmin = async (
+    attemptUser: string,
+    attemptPass: string,
+    remember: boolean = true
+  ): Promise<boolean> => {
+    const configuredUser = config.adminAuth?.username || DEFAULT_ADMIN_USERNAME;
+    const allowEmail = config.adminAuth?.allowEmailLogin ?? true;
+
+    if (!verifyUsername(attemptUser, configuredUser, allowEmail)) {
+      return false;
+    }
+
+    const isValidPass = await verifyPassword(
+      attemptPass,
+      config.adminAuth?.passwordHash,
+      config.adminAuth?.salt
+    );
+
+    if (!isValidPass) {
+      return false;
+    }
+
+    saveAuthSession(remember);
+    setIsAdminAuthenticated(true);
+    setIsAdminOpen(true);
+    setActiveView('home');
+    return true;
+  };
+
+  // Admin Logout Handler
+  const logoutAdmin = () => {
+    clearAuthSession();
+    setIsAdminAuthenticated(false);
+    setIsAdminOpen(false);
+    setActiveView('home');
+    if (typeof window !== 'undefined') {
+      const slug = config.adminAuth?.secretSlug || DEFAULT_SECRET_SLUG;
+      if (
+        window.location.pathname.includes(slug) ||
+        window.location.hash.includes(slug) ||
+        window.location.search.includes('admin')
+      ) {
+        window.history.replaceState(null, '', '/');
+      }
+    }
+  };
+
+  // Route & Shortcut Listener for Secret Admin Portal
+  useEffect(() => {
+    const slug = config.adminAuth?.secretSlug || DEFAULT_SECRET_SLUG;
+
+    const checkUrlRoute = () => {
+      if (isSecretAdminUrl(slug)) {
+        if (isAdminAuthenticated) {
+          setIsAdminOpen(true);
+          setActiveView('home');
+        } else {
+          setActiveView('admin-login');
+        }
+      }
+    };
+
+    checkUrlRoute();
+
+    window.addEventListener('popstate', checkUrlRoute);
+    window.addEventListener('hashchange', checkUrlRoute);
+
+    // Keyboard shortcut: Ctrl+Shift+A or Cmd+Shift+A
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'A' || e.key === 'a')) {
+        e.preventDefault();
+        if (isAdminAuthenticated) {
+          setIsAdminOpen((prev) => !prev);
+        } else {
+          setActiveView((prev) => (prev === 'admin-login' ? 'home' : 'admin-login'));
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('popstate', checkUrlRoute);
+      window.removeEventListener('hashchange', checkUrlRoute);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [config.adminAuth?.secretSlug, isAdminAuthenticated]);
 
   // Save Config to Firestore Cloud
   const saveConfigToCloud = async (): Promise<boolean> => {
@@ -1151,6 +1268,10 @@ export const CmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         cloudSyncStatus,
         lastCloudSyncTime,
         saveConfigToCloud,
+        // Admin Authentication & Security
+        isAdminAuthenticated,
+        loginAdmin,
+        logoutAdmin,
         // Order Modal
         orderModalOpen,
         setOrderModalOpen,

@@ -35,11 +35,13 @@ import {
   Cloud,
   CloudOff,
   RefreshCw,
+  LogOut,
 } from 'lucide-react';
 import { SeoTab } from './SeoTab';
 import { ServicesTab } from './ServicesTab';
 import { OrdersTab } from './OrdersTab';
 import { PaymentsTab } from './PaymentsTab';
+import { AdminSecurityTab } from './AdminSecurityTab';
 
 export const AdminDashboard: React.FC = () => {
   const {
@@ -71,6 +73,7 @@ export const AdminDashboard: React.FC = () => {
     cloudSyncStatus,
     saveConfigToCloud,
     lastCloudSyncTime,
+    logoutAdmin,
   } = useCms();
 
   const [syncingCloud, setSyncingCloud] = useState(false);
@@ -285,7 +288,7 @@ export const AdminDashboard: React.FC = () => {
 
             <button
               onClick={() => setShowJsonModal(true)}
-              className="text-xs px-2.5 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 flex items-center gap-1.5 transition"
+              className="text-xs px-2.5 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 flex items-center gap-1.5 transition cursor-pointer"
               title="Import configuration JSON"
             >
               <Upload className="w-3.5 h-3.5" />
@@ -293,9 +296,21 @@ export const AdminDashboard: React.FC = () => {
             </button>
 
             <button
+              onClick={() => {
+                handleClose();
+                logoutAdmin();
+              }}
+              className="text-xs px-2.5 py-1.5 rounded bg-rose-950/80 hover:bg-rose-900 text-rose-200 border border-rose-800/60 flex items-center gap-1.5 transition cursor-pointer"
+              title="Log out of Admin session"
+            >
+              <LogOut className="w-3.5 h-3.5 text-rose-400" />
+              <span className="hidden sm:inline">Logout</span>
+            </button>
+
+            <button
               id="cms-admin-close-btn"
               onClick={handleClose}
-              className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition ml-2"
+              className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition ml-2 cursor-pointer"
               aria-label="Close Admin"
             >
               <X className="w-5 h-5" />
@@ -435,6 +450,19 @@ export const AdminDashboard: React.FC = () => {
           >
             <Search className="w-3.5 h-3.5" />
             <span>10. Every-Page SEO</span>
+          </button>
+
+          <button
+            id="cms-admin-tab-security-btn"
+            onClick={() => setAdminTab('security')}
+            className={`px-3.5 py-2 rounded-lg flex items-center gap-1.5 transition whitespace-nowrap cursor-pointer ${
+              adminTab === 'security'
+                ? 'bg-indigo-600 text-white shadow-xs'
+                : 'text-indigo-700 bg-indigo-50/70 hover:bg-indigo-100 border border-indigo-200'
+            }`}
+          >
+            <Shield className="w-3.5 h-3.5" />
+            <span>11. Secret URL & Password</span>
           </button>
         </div>
 
@@ -1918,6 +1946,9 @@ export const AdminDashboard: React.FC = () => {
 
           {/* ======================= TAB 9: EVERY-PAGE SEO & DISCOVERABILITY ======================= */}
           {adminTab === 'seo' && <SeoTab />}
+
+          {/* ======================= TAB 11: ADMIN SECURITY & CREDENTIALS ======================= */}
+          {adminTab === 'security' && <AdminSecurityTab />}
         </div>
 
         {/* Modal Footer */}

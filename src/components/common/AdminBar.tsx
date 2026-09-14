@@ -19,6 +19,9 @@ import {
   CloudOff,
   CheckCircle2,
   RefreshCw,
+  LogOut,
+  Shield,
+  KeyRound,
 } from 'lucide-react';
 
 export const AdminBar: React.FC = () => {
@@ -34,10 +37,17 @@ export const AdminBar: React.FC = () => {
     cloudSyncStatus,
     saveConfigToCloud,
     lastCloudSyncTime,
+    isAdminAuthenticated,
+    logoutAdmin,
   } = useCms();
 
   const [newDropdownOpen, setNewDropdownOpen] = useState(false);
   const [syncingFeedback, setSyncingFeedback] = useState(false);
+
+  // If user is not authenticated with admin credentials, AdminBar is strictly hidden
+  if (!isAdminAuthenticated) {
+    return null;
+  }
 
   const handleManualCloudSync = async () => {
     setSyncingFeedback(true);
@@ -234,7 +244,7 @@ export const AdminBar: React.FC = () => {
           <button
             id="cms-toggle-visitor-mode-btn"
             onClick={() => setVisitorMode(true)}
-            className="hidden sm:flex items-center space-x-1 text-slate-400 hover:text-slate-200 hover:bg-slate-800 px-2 py-1 rounded transition"
+            className="hidden sm:flex items-center space-x-1 text-slate-400 hover:text-slate-200 hover:bg-slate-800 px-2 py-1 rounded transition text-xs"
             title="Hide Admin Bar to see exact visitor view"
           >
             <Eye className="w-3.5 h-3.5 text-slate-400" />
@@ -242,12 +252,35 @@ export const AdminBar: React.FC = () => {
           </button>
 
           <button
+            id="cms-open-admin-security-btn"
+            onClick={() => {
+              setAdminTab('security');
+              setIsAdminOpen(true);
+            }}
+            className="hidden md:flex items-center space-x-1 text-indigo-300 hover:text-white hover:bg-indigo-950/80 border border-indigo-800/60 px-2 py-1 rounded transition text-xs cursor-pointer"
+            title="Admin Security, Password & Secret URL Settings"
+          >
+            <Shield className="w-3 h-3 text-indigo-400" />
+            <span>Security</span>
+          </button>
+
+          <button
             id="cms-open-admin-dashboard-btn"
             onClick={() => setIsAdminOpen(true)}
-            className="flex items-center space-x-1.5 bg-blue-600 hover:bg-blue-500 text-white font-medium px-2.5 py-1 rounded transition shadow-sm"
+            className="flex items-center space-x-1.5 bg-blue-600 hover:bg-blue-500 text-white font-medium px-2.5 py-1 rounded transition shadow-sm text-xs cursor-pointer"
           >
             <LayoutDashboard className="w-3.5 h-3.5" />
-            <span>Admin Panel</span>
+            <span>Admin Studio</span>
+          </button>
+
+          <button
+            id="cms-admin-logout-btn"
+            onClick={logoutAdmin}
+            className="flex items-center space-x-1 text-rose-300 hover:text-rose-100 hover:bg-rose-950/70 border border-rose-900/60 px-2 py-1 rounded transition text-xs cursor-pointer"
+            title="Log out of Admin session"
+          >
+            <LogOut className="w-3 h-3 text-rose-400" />
+            <span className="hidden sm:inline">Logout</span>
           </button>
 
           <button

@@ -871,4 +871,9 @@ Our technical engineers optimize LCP, FID/INP, and CLS scores to pass Core Web V
       },
     ],
   },
+  adminAuth: {
+    secretSlug: 'secret-admin',
+    username: 'admin',
+    allowEmailLogin: true,
+  },
 };
