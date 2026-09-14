@@ -32,6 +32,9 @@ import {
   Briefcase,
   Inbox,
   CreditCard,
+  Cloud,
+  CloudOff,
+  RefreshCw,
 } from 'lucide-react';
 import { SeoTab } from './SeoTab';
 import { ServicesTab } from './ServicesTab';
@@ -65,7 +68,23 @@ export const AdminDashboard: React.FC = () => {
     exportConfigJson,
     importConfigJson,
     pendingOrdersCount,
+    cloudSyncStatus,
+    saveConfigToCloud,
+    lastCloudSyncTime,
   } = useCms();
+
+  const [syncingCloud, setSyncingCloud] = useState(false);
+  const [syncSuccessMsg, setSyncSuccessMsg] = useState<string | null>(null);
+
+  const handleCloudPublish = async () => {
+    setSyncingCloud(true);
+    const ok = await saveConfigToCloud();
+    setSyncingCloud(false);
+    if (ok) {
+      setSyncSuccessMsg('Live on Netlify & Cloud!');
+      setTimeout(() => setSyncSuccessMsg(null), 3000);
+    }
+  };
 
   // Section editing state
   const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
@@ -229,6 +248,32 @@ export const AdminDashboard: React.FC = () => {
           </div>
 
           <div className="flex items-center space-x-2">
+            {/* Publish & Sync to Netlify / Cloud */}
+            <button
+              id="cms-admin-cloud-publish-btn"
+              onClick={handleCloudPublish}
+              disabled={syncingCloud}
+              className="text-xs px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium flex items-center gap-1.5 transition shadow-xs disabled:opacity-50 cursor-pointer"
+              title="Save current website content and configuration to Firestore Cloud so it immediately shows on Netlify and all domains"
+            >
+              {syncingCloud ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  <span>Syncing...</span>
+                </>
+              ) : syncSuccessMsg ? (
+                <>
+                  <Check className="w-3.5 h-3.5" />
+                  <span>{syncSuccessMsg}</span>
+                </>
+              ) : (
+                <>
+                  <Cloud className="w-3.5 h-3.5" />
+                  <span>Publish to Netlify / Cloud</span>
+                </>
+              )}
+            </button>
+
             <button
               onClick={handleExport}
               className="text-xs px-2.5 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 flex items-center gap-1.5 transition"

@@ -15,6 +15,10 @@ import {
   Briefcase,
   Inbox,
   CreditCard,
+  Cloud,
+  CloudOff,
+  CheckCircle2,
+  RefreshCw,
 } from 'lucide-react';
 
 export const AdminBar: React.FC = () => {
@@ -27,9 +31,21 @@ export const AdminBar: React.FC = () => {
     setActiveView,
     resetToDefaults,
     pendingOrdersCount,
+    cloudSyncStatus,
+    saveConfigToCloud,
+    lastCloudSyncTime,
   } = useCms();
 
   const [newDropdownOpen, setNewDropdownOpen] = useState(false);
+  const [syncingFeedback, setSyncingFeedback] = useState(false);
+
+  const handleManualCloudSync = async () => {
+    setSyncingFeedback(true);
+    await saveConfigToCloud();
+    setTimeout(() => {
+      setSyncingFeedback(false);
+    }, 1500);
+  };
 
   if (visitorMode) {
     return (
@@ -183,8 +199,38 @@ export const AdminBar: React.FC = () => {
           </div>
         </div>
 
-        {/* Right: Dashboard button, Visitor Mode toggle */}
+        {/* Right: Cloud Sync, Dashboard button, Visitor Mode toggle */}
         <div className="flex items-center space-x-2">
+          {/* Cloud Sync to Netlify / Firestore */}
+          <button
+            id="cms-cloud-sync-btn"
+            onClick={handleManualCloudSync}
+            disabled={syncingFeedback || cloudSyncStatus === 'saving'}
+            className="flex items-center space-x-1.5 px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition text-[11px] font-medium border border-slate-700/80 cursor-pointer disabled:opacity-60"
+            title={
+              lastCloudSyncTime
+                ? `Last synced to cloud at ${lastCloudSyncTime}. Content is live across Netlify and all domains.`
+                : 'Sync live website content to Cloud (Netlify & all domains)'
+            }
+          >
+            {syncingFeedback || cloudSyncStatus === 'saving' ? (
+              <>
+                <RefreshCw className="w-3 h-3 text-amber-400 animate-spin" />
+                <span className="text-amber-300">Syncing...</span>
+              </>
+            ) : cloudSyncStatus === 'synced' ? (
+              <>
+                <Cloud className="w-3 h-3 text-emerald-400" />
+                <span className="hidden sm:inline text-emerald-300">Cloud Synced</span>
+              </>
+            ) : (
+              <>
+                <CloudOff className="w-3 h-3 text-slate-400" />
+                <span className="hidden sm:inline text-slate-300">Sync to Cloud</span>
+              </>
+            )}
+          </button>
+
           <button
             id="cms-toggle-visitor-mode-btn"
             onClick={() => setVisitorMode(true)}

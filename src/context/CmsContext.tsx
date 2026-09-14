@@ -21,6 +21,8 @@ import {
   db,
   collection,
   addDoc,
+  getDoc,
+  setDoc,
   updateDoc,
   deleteDoc,
   doc,
@@ -43,6 +45,8 @@ export type AdminTabType =
   | 'blog'
   | 'footer'
   | 'seo';
+
+export type CloudSyncStatusType = 'synced' | 'saving' | 'local_only' | 'error';
 
 interface CmsContextType {
   config: SiteConfig;
@@ -88,6 +92,10 @@ interface CmsContextType {
   deleteOrder: (orderId: string) => Promise<void>;
   adminNotificationEmail: string;
   setAdminNotificationEmail: (email: string) => void;
+  // Cloud Sync for Multi-Domain / Netlify
+  cloudSyncStatus: CloudSyncStatusType;
+  lastCloudSyncTime: string | null;
+  saveConfigToCloud: () => Promise<boolean>;
   // Order Modal interaction
   orderModalOpen: boolean;
   setOrderModalOpen: (open: boolean) => void;
@@ -174,6 +182,91 @@ export const CmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // Orders State (Firestore synced)
   const [orders, setOrders] = useState<OrderRecord[]>([]);
 
+  // Cloud Sync State
+  const [cloudSyncStatus, setCloudSyncStatus] = useState<CloudSyncStatusType>('synced');
+  const [lastCloudSyncTime, setLastCloudSyncTime] = useState<string | null>(null);
+
+  // Sync CMS Site Config from Firestore (so Netlify, custom domain, and preview share exact data)
+  useEffect(() => {
+    if (!db) {
+      setCloudSyncStatus('local_only');
+      return;
+    }
+    try {
+      const configDocRef = doc(db, 'cms_config', 'site_config');
+      const unsubscribe = onSnapshot(
+        configDocRef,
+        (docSnap) => {
+          if (docSnap.exists()) {
+            const remoteConfig = docSnap.data() as SiteConfig;
+            setConfig((prev) => ({
+              ...DEFAULT_SITE_CONFIG,
+              ...remoteConfig,
+              header: { ...DEFAULT_SITE_CONFIG.header, ...(remoteConfig.header || {}) },
+              footer: { ...DEFAULT_SITE_CONFIG.footer, ...(remoteConfig.footer || {}) },
+              theme: { ...DEFAULT_SITE_CONFIG.theme, ...(remoteConfig.theme || {}) },
+              services:
+                remoteConfig.services && Array.isArray(remoteConfig.services) && remoteConfig.services.length > 0
+                  ? remoteConfig.services
+                  : prev.services,
+              payment: {
+                ...DEFAULT_SITE_CONFIG.payment,
+                ...(remoteConfig.payment || {}),
+                methods:
+                  remoteConfig.payment?.methods &&
+                  Array.isArray(remoteConfig.payment.methods) &&
+                  remoteConfig.payment.methods.length > 0
+                    ? remoteConfig.payment.methods
+                    : prev.payment.methods,
+              },
+              sections: remoteConfig.sections || prev.sections,
+              posts: remoteConfig.posts || prev.posts,
+              pages: remoteConfig.pages || prev.pages,
+              seo: {
+                ...DEFAULT_SITE_CONFIG.seo,
+                ...(remoteConfig.seo || {}),
+                pageSeo: {
+                  ...(DEFAULT_SITE_CONFIG.seo.pageSeo || {}),
+                  ...(remoteConfig.seo?.pageSeo || {}),
+                },
+              },
+            }));
+            setCloudSyncStatus('synced');
+            setLastCloudSyncTime(new Date().toLocaleTimeString());
+          }
+        },
+        (err) => {
+          console.warn('Firestore CMS config snapshot listener error:', err);
+          setCloudSyncStatus('local_only');
+        }
+      );
+      return () => unsubscribe();
+    } catch (e) {
+      console.warn('Firestore config listener init notice:', e);
+    }
+  }, []);
+
+  // Save Config to Firestore Cloud
+  const saveConfigToCloud = async (): Promise<boolean> => {
+    if (!db) {
+      console.warn('Firestore not connected. Config saved to local device.');
+      setCloudSyncStatus('local_only');
+      return false;
+    }
+    setCloudSyncStatus('saving');
+    try {
+      const configDocRef = doc(db, 'cms_config', 'site_config');
+      await setDoc(configDocRef, config, { merge: true });
+      setCloudSyncStatus('synced');
+      setLastCloudSyncTime(new Date().toLocaleTimeString());
+      return true;
+    } catch (err) {
+      console.error('Failed to save CMS config to Firestore cloud:', err);
+      setCloudSyncStatus('error');
+      return false;
+    }
+  };
+
   // Order Booking Modal State
   const [orderModalOpen, setOrderModalOpen] = useState(false);
   const [selectedServiceForOrder, setSelectedServiceForOrder] = useState<ServiceItem | null>(null);
@@ -193,6 +286,7 @@ export const CmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // Real-time Firestore sync for Orders
   useEffect(() => {
+    if (!db) return;
     try {
       const q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'));
       const unsubscribe = onSnapshot(
@@ -219,12 +313,29 @@ export const CmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const pendingOrdersCount = orders.filter((o) => o.status === 'pending').length;
 
-  // Save to localStorage on changes
+  // Save to localStorage & debounced cloud sync on changes
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
     } catch (e) {
       console.error('Failed to save CMS state to localStorage:', e);
+    }
+
+    // Debounced automatic cloud sync (2.5s)
+    if (db) {
+      const timer = setTimeout(() => {
+        setCloudSyncStatus('saving');
+        setDoc(doc(db, 'cms_config', 'site_config'), config, { merge: true })
+          .then(() => {
+            setCloudSyncStatus('synced');
+            setLastCloudSyncTime(new Date().toLocaleTimeString());
+          })
+          .catch((err) => {
+            console.warn('Auto cloud sync notice:', err);
+            setCloudSyncStatus('local_only');
+          });
+      }, 2500);
+      return () => clearTimeout(timer);
     }
   }, [config]);
 
@@ -1036,6 +1147,10 @@ export const CmsProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         deleteOrder,
         adminNotificationEmail,
         setAdminNotificationEmail,
+        // Cloud Sync for Multi-Domain / Netlify
+        cloudSyncStatus,
+        lastCloudSyncTime,
+        saveConfigToCloud,
         // Order Modal
         orderModalOpen,
         setOrderModalOpen,
