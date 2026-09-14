@@ -1,0 +1,21 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Orders collection: clients can create orders, anyone can read/manage for the CMS applet
+    match /orders/{orderId} {
+      allow create: if request.resource.data.clientEmail is string && request.resource.data.clientName is string;
+      allow read, update, delete: if true;
+    }
+
+    // Free SEO Audit requests collection
+    match /audit_requests/{requestId} {
+      allow create: if request.resource.data.email is string;
+      allow read, update, delete: if true;
+    }
+
+    // Default fallback
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}

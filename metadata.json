@@ -1,0 +1,6 @@
+{
+  "name": "CMS Website Studio",
+  "description": "A customizable WordPress-style CMS website with full admin control for SEO services catalog, granular per-page SEO optimization, flexible payment gateways & checkout management, Firebase Firestore client orders, custom themes, and content blocks.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
